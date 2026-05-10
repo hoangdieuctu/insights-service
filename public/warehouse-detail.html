@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warehouse Detail — Insights</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .group-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--ink-9);
+      border-bottom: 1px solid var(--ink-7);
+      cursor: pointer;
+      user-select: none;
+    }
+    .group-row:hover { background: var(--ink-8); }
+    .group-chevron {
+      font-size: 11px;
+      color: var(--ink-4);
+      transition: transform .15s;
+      width: 14px;
+      flex-shrink: 0;
+    }
+    .group-chevron.open { transform: rotate(90deg); }
+    .group-icon { font-size: 14px; flex-shrink: 0; }
+    .group-label { flex: 1; display: flex; align-items: baseline; gap: 8px; }
+    .group-name  { font-size: 13px; font-weight: 600; color: var(--ink-1); }
+    .group-route { font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+    .group-count { font-family: var(--mono); font-size: 11px; color: var(--ink-5); margin-right: 8px; }
+    .feature-row td:first-child { padding-left: 40px; }
+    .ungrouped-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--ink-9);
+      border-bottom: 1px solid var(--ink-7);
+    }
+    .ungrouped-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-5);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="nav-brand-dot"></span>
+    INSIGHTS
+  </div>
+  <div class="nav-divider"></div>
+  <ul class="nav-links">
+    <li><a href="/">▦ Warehouses</a></li>
+    <li><a href="/features.html">⚑ Features</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+  <div class="breadcrumb">
+    <a href="/">Warehouses</a>
+    <span class="sep">/</span>
+    <span class="current" id="bc-name">…</span>
+  </div>
+
+  <div class="page-header">
+    <div>
+      <h1 id="wh-title">Loading…</h1>
+      <p id="wh-subtitle" style="font-family:var(--mono);font-size:12px;color:var(--ink-4);margin-top:4px"></p>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('features', this)">⚑ Feature Flags</button>
+      <button class="tab-btn" onclick="switchTab('settings', this)">⚙ Settings</button>
+    </div>
+
+    <!-- Features Tab -->
+    <div id="tab-features" class="tab-panel active">
+      <div class="card">
+        <div class="card-header">
+          <h2>Feature Flags</h2>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="text-sm text-muted" id="features-count"></span>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="collapseAll()">Collapse all</button>
+              <button class="btn btn-ghost btn-sm" onclick="expandAll()">Expand all</button>
+            </div>
+          </div>
+        </div>
+        <div id="features-area"></div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="tab-settings" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <h2>Settings</h2>
+          <span class="text-sm text-muted" id="settings-count"></span>
+        </div>
+        <div class="table-wrap">
+          <div id="settings-area"></div>
+        </div>
+        <div class="add-row">
+          <input class="form-input key-input" id="new-key" placeholder="key (e.g. sla_start)" autocomplete="off" onkeydown="if(event.key==='Enter')addSetting()">
+          <input class="form-input val-input" id="new-val" placeholder="value (e.g. 08:15)" autocomplete="off" onkeydown="if(event.key==='Enter')addSetting()">
+          <button class="btn btn-primary btn-sm" onclick="addSetting()">+ Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+const params      = new URLSearchParams(location.search)
+const warehouseId = params.get('id')
+
+if (!warehouseId) {
+  document.querySelector('h1').textContent = 'No warehouse ID'
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById(`tab-${name}`).classList.add('active')
+  btn.classList.add('active')
+}
+
+// ── Warehouse ────────────────────────────────────────────────────────────────
+
+async function loadWarehouse() {
+  try {
+    const w = await api(`/api/warehouses/${warehouseId}`).get()
+    document.title = `${w.code} — Insights`
+    document.getElementById('bc-name').textContent   = w.code
+    document.getElementById('wh-title').textContent  = w.code
+    document.getElementById('wh-subtitle').textContent = ''
+  } catch (e) {
+    document.getElementById('wh-title').textContent = 'Warehouse not found'
+    showToast(e.message, 'error')
+  }
+}
+
+// ── Feature Flags ─────────────────────────────────────────────────────────────
+
+let featuresData  = []
+let groupsData    = []
+let groupOverrides = {} // groupId -> enabled
+const collapsed   = new Set()
+
+async function loadFeatures() {
+  const area = document.getElementById('features-area')
+  renderLoading(area)
+  try {
+    const [features, groups, overrides] = await Promise.all([
+      api(`/api/warehouses/${warehouseId}/features`).get(),
+      api('/api/feature-groups').get(),
+      api(`/api/warehouses/${warehouseId}/groups`).get(),
+    ])
+    featuresData   = features
+    groupsData     = groups
+    groupOverrides = Object.fromEntries(overrides.map(o => [o.groupId, o.enabled]))
+    document.getElementById('features-count').textContent =
+      `${featuresData.filter(f => f.resolvedEnabled).length} / ${featuresData.length} enabled`
+    renderFeatureTree()
+  } catch (e) {
+    renderEmpty(area, 'Failed to load features', e.message)
+    showToast(e.message, 'error')
+  }
+}
+
+function renderFeatureTree() {
+  const area = document.getElementById('features-area')
+  if (!featuresData.length) {
+    renderEmpty(area, 'No active features', 'Enable features in the Feature Registry to manage them per warehouse.')
+    return
+  }
+
+  const byGroup  = new Map()
+  groupsData.forEach(g => byGroup.set(g.id, []))
+  const ungrouped = []
+  featuresData.forEach(f => {
+    if (f.groupId && byGroup.has(f.groupId)) byGroup.get(f.groupId).push(f)
+    else ungrouped.push(f)
+  })
+
+  let html = '<table style="width:100%;border-collapse:collapse">'
+
+  groupsData.forEach(g => {
+    const gFeatures = byGroup.get(g.id) ?? []
+    if (!gFeatures.length) return
+    if (!g.enabled) return
+    const isOpen      = !collapsed.has(g.id)
+    const groupEnabled = groupOverrides[g.id] !== false
+    html += `
+      <tr class="group-tr" data-group-id="${esc(g.id)}">
+        <td colspan="3" style="padding:0">
+          <div class="group-row" onclick="toggleGroup('${esc(g.id)}')">
+            <span class="group-chevron ${isOpen ? 'open' : ''}">▶</span>
+            <span class="group-icon">${g.enabled ? '📁' : '📂'}</span>
+            <span class="group-label" style="${!g.enabled ? 'opacity:.5' : ''}">
+              <span class="group-name">${esc(g.name)}</span>
+              <span class="group-route">${esc(g.route)}</span>
+            </span>
+            <div onclick="event.stopPropagation()">
+              <label class="toggle">
+                <input type="checkbox" ${groupEnabled ? 'checked' : ''}
+                  onchange="toggleGroupOverride('${esc(g.id)}', this.checked)">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `
+    if (isOpen) {
+      gFeatures.forEach(f => { html += whFeatureRow(f) })
+    }
+  })
+
+  if (ungrouped.length) {
+    html += `
+      <tr>
+        <td colspan="3" style="padding:0">
+          <div class="ungrouped-header">
+            <span class="ungrouped-label">Ungrouped</span>
+          </div>
+        </td>
+      </tr>
+    `
+    ungrouped.forEach(f => { html += whFeatureRow(f) })
+  }
+
+  html += '</table>'
+  area.innerHTML = html
+}
+
+async function toggleGroupOverride(groupId, enabled) {
+  try {
+    await api(`/api/warehouses/${warehouseId}/groups/${groupId}`).put({ enabled })
+    groupOverrides[groupId] = enabled
+    renderFeatureTree()
+    showToast(`Group ${enabled ? 'enabled' : 'disabled'}`)
+  } catch (e) {
+    showToast(e.message, 'error')
+  }
+}
+
+function whFeatureRow(f) {
+  return `
+    <tr class="feature-row" style="border-bottom:1px solid var(--ink-8)">
+      <td style="padding:10px 16px 10px 40px">
+        <div style="font-size:13px;font-weight:500;color:var(--ink-1)">${esc(f.name)}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:2px">${esc(f.route)}</div>
+      </td>
+      <td style="padding:10px 16px">
+        <label class="toggle">
+          <input type="checkbox" ${f.resolvedEnabled ? 'checked' : ''}
+            onchange="toggleFeature('${esc(f.id)}', this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </td>
+    </tr>
+  `
+}
+
+function toggleGroup(groupId) {
+  if (collapsed.has(groupId)) collapsed.delete(groupId)
+  else collapsed.add(groupId)
+  renderFeatureTree()
+}
+
+function collapseAll() {
+  groupsData.forEach(g => collapsed.add(g.id))
+  renderFeatureTree()
+}
+
+function expandAll() {
+  collapsed.clear()
+  renderFeatureTree()
+}
+
+async function toggleFeature(featureId, enabled) {
+  try {
+    await api(`/api/warehouses/${warehouseId}/features/${featureId}`).put({ enabled })
+    const f = featuresData.find(x => x.id === featureId)
+    if (f) {
+      f.resolvedEnabled = enabled
+      if (!f.override) f.override = { enabled, value: null }
+      else f.override.enabled = enabled
+    }
+    document.getElementById('features-count').textContent =
+      `${featuresData.filter(f => f.resolvedEnabled).length} / ${featuresData.length} enabled`
+    renderFeatureTree()
+    showToast(`Feature ${enabled ? 'enabled' : 'disabled'}`)
+  } catch (e) {
+    showToast(e.message, 'error')
+    loadFeatures()
+  }
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+let settingsData = []
+
+async function loadSettings() {
+  const area = document.getElementById('settings-area')
+  renderLoading(area)
+  try {
+    settingsData = await api(`/api/warehouses/${warehouseId}/settings`).get()
+    document.getElementById('settings-count').textContent = `${settingsData.length} entries`
+    renderSettings()
+  } catch (e) {
+    renderEmpty(area, 'Failed to load settings', e.message)
+    showToast(e.message, 'error')
+  }
+}
+
+function renderSettings() {
+  const area = document.getElementById('settings-area')
+  if (!settingsData.length) {
+    renderEmpty(area, 'No settings yet', 'Use the form below to add key-value settings for this warehouse.')
+    return
+  }
+  area.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Value</th>
+          <th>Updated</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${settingsData.map(s => `
+          <tr id="srow-${esc(s.id)}">
+            <td class="td-mono">${esc(s.key)}</td>
+            <td>
+              <span class="value-display ${!s.value ? 'empty' : ''}"
+                title="Click to edit"
+                onclick="startSettingEdit('${esc(s.key)}', this)"
+                data-value="${esc(s.value)}">
+                ${esc(s.value) || '—'}
+              </span>
+            </td>
+            <td class="td-mono text-muted">${formatDateTime(s.updatedAt)}</td>
+            <td>
+              <button class="btn btn-danger btn-xs" onclick="deleteSetting('${esc(s.key)}')">Delete</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `
+}
+
+function startSettingEdit(key, span) {
+  const currentVal = span.dataset.value
+  const input = document.createElement('input')
+  input.className = 'inline-edit-input'
+  input.value = currentVal
+
+  span.replaceWith(input)
+  input.focus()
+  input.select()
+
+  async function commit() {
+    const newVal = input.value
+    try {
+      await api(`/api/warehouses/${warehouseId}/settings/${encodeURIComponent(key)}`).put({ value: newVal })
+      showToast('Setting updated')
+      loadSettings()
+    } catch (e) {
+      showToast(e.message, 'error')
+      loadSettings()
+    }
+  }
+
+  input.addEventListener('blur', commit, { once: true })
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { input.blur() }
+    if (e.key === 'Escape') { input.removeEventListener('blur', commit); loadSettings() }
+  })
+}
+
+async function addSetting() {
+  const key = document.getElementById('new-key').value.trim()
+  const val = document.getElementById('new-val').value.trim()
+  if (!key) { showToast('Key is required', 'error'); return }
+  try {
+    await api(`/api/warehouses/${warehouseId}/settings/${encodeURIComponent(key)}`).put({ value: val })
+    document.getElementById('new-key').value = ''
+    document.getElementById('new-val').value = ''
+    showToast(`Setting "${key}" saved`)
+    loadSettings()
+  } catch (e) {
+    showToast(e.message, 'error')
+  }
+}
+
+async function deleteSetting(key) {
+  if (!await confirmAction(`Delete setting "${key}"?`)) return
+  try {
+    await api(`/api/warehouses/${warehouseId}/settings/${encodeURIComponent(key)}`).del()
+    showToast(`Setting "${key}" deleted`)
+    loadSettings()
+  } catch (e) {
+    showToast(e.message, 'error')
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!warehouseId) return
+  loadWarehouse()
+  loadFeatures()
+  loadSettings()
+})
+</script>
+</body>
+</html>

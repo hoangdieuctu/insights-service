@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Features — Insights</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .group-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--ink-9);
+      border-bottom: 1px solid var(--ink-7);
+      cursor: pointer;
+      user-select: none;
+    }
+    .group-row:hover { background: var(--ink-8); }
+
+    .group-chevron {
+      font-size: 11px;
+      color: var(--ink-4);
+      transition: transform .15s;
+      width: 14px;
+      flex-shrink: 0;
+    }
+    .group-chevron.open { transform: rotate(90deg); }
+
+    .group-icon { font-size: 14px; flex-shrink: 0; }
+    .group-label { flex: 1; display: flex; align-items: baseline; gap: 8px; }
+    .group-name  { font-size: 13px; font-weight: 600; color: var(--ink-1); }
+    .group-route { font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+    .group-count { font-family: var(--mono); font-size: 11px; color: var(--ink-5); margin-right: 8px; }
+
+    .group-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+    .group-row:hover .group-actions { opacity: 1; }
+
+    .feature-row td:first-child { padding-left: 40px; }
+
+    .wh-list-row td {
+      padding: 0 16px 0 56px;
+      border-bottom: 1px solid var(--ink-8);
+    }
+    .wh-list-inner {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 0;
+    }
+    .wh-chip {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: var(--ink-8);
+      color: var(--ink-3);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+    .wh-none {
+      font-size: 12px;
+      color: var(--ink-5);
+      font-style: italic;
+      padding: 6px 0;
+    }
+
+    .ungrouped-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--ink-9);
+      border-bottom: 1px solid var(--ink-7);
+    }
+    .ungrouped-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-5);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      flex: 1;
+    }
+
+    /* Drag handle */
+    .drag-handle {
+      cursor: grab;
+      color: var(--ink-5);
+      font-size: 14px;
+      padding: 0 4px;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity .15s;
+      line-height: 1;
+    }
+    .group-row:hover .drag-handle,
+    tr:hover .drag-handle { opacity: 1; }
+    .drag-handle:active { cursor: grabbing; }
+
+    /* Drop indicator */
+    .drag-over-top    { border-top: 2px solid var(--blue) !important; }
+    .drag-over-bottom { border-bottom: 2px solid var(--blue) !important; }
+    .drag-ghost { opacity: .35; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="nav-brand-dot"></span>
+    INSIGHTS
+  </div>
+  <div class="nav-divider"></div>
+  <ul class="nav-links">
+    <li><a href="/">▦ Warehouses</a></li>
+    <li><a href="/features.html" class="active">⚑ Features</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>Feature Registry</h1>
+      <p>Define global features. Disabled features are hidden from all warehouses.</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" onclick="openGroupModal()">+ New Group</button>
+      <button class="btn btn-primary" onclick="openCreateModal()">+ New Feature</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>All Features</h2>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="collapseAll()">Collapse all</button>
+        <button class="btn btn-ghost btn-sm" onclick="expandAll()">Expand all</button>
+      </div>
+    </div>
+    <div id="tree-area"></div>
+  </div>
+</div>
+
+<!-- Feature Modal -->
+<div id="feature-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">New Feature</h2>
+      <button class="modal-close" onclick="closeModal('feature-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+
+      <div class="form-group">
+        <label class="form-label">Group</label>
+        <select class="form-select" id="input-group">
+          <option value="">— No group —</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input class="form-input" id="input-name" placeholder="e.g. New Dashboard" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Route</label>
+        <input class="form-input" id="input-route" placeholder="e.g. /dashboard/new" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:2px">
+          <label class="toggle">
+            <input type="checkbox" id="input-enabled" checked>
+            <span class="toggle-track"></span>
+          </label>
+          <span id="enabled-label" style="font-size:13px;color:var(--ink-3)">Enabled</span>
+        </div>
+        <span class="form-hint">Disabled features are hidden from all warehouse detail pages</span>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeModal('feature-modal')">Cancel</button>
+        <button class="btn btn-primary" id="save-btn" onclick="saveFeature()">Create Feature</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Group Modal -->
+<div id="group-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="group-modal-title">New Group</h2>
+      <button class="modal-close" onclick="closeModal('group-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="group-edit-id">
+
+      <div class="form-group">
+          <label class="form-label">Name</label>
+          <input class="form-input" id="group-input-name" placeholder="e.g. Reporting" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Route</label>
+          <input class="form-input" id="group-input-route" placeholder="e.g. /reporting" autocomplete="off">
+        </div>
+
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:2px">
+          <label class="toggle">
+            <input type="checkbox" id="group-input-enabled" checked>
+            <span class="toggle-track"></span>
+          </label>
+          <span id="group-enabled-label" style="font-size:13px;color:var(--ink-3)">Enabled</span>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeModal('group-modal')">Cancel</button>
+        <button class="btn btn-primary" id="group-save-btn" onclick="saveGroup()">Create Group</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+let features = []
+let groups   = []
+const collapsed = new Set()
+
+document.getElementById('input-enabled').addEventListener('change', function () {
+  document.getElementById('enabled-label').textContent = this.checked ? 'Enabled' : 'Disabled'
+})
+document.getElementById('group-input-enabled').addEventListener('change', function () {
+  document.getElementById('group-enabled-label').textContent = this.checked ? 'Enabled' : 'Disabled'
+})
+
+let whMap = {} // featureId -> string[]
+
+async function loadAll() {
+  const area = document.getElementById('tree-area')
+  renderLoading(area)
+  try {
+    ;[features, groups, whMap] = await Promise.all([
+      api('/api/features').get(),
+      api('/api/feature-groups').get(),
+      api('/api/features/warehouse-map').get(),
+    ])
+    renderTree()
+  } catch (e) {
+    renderEmpty(area, 'Failed to load', e.message)
+    showToast(e.message, 'error')
+  }
+}
+
+function whChips(codes) {
+  if (!codes || !codes.length) return ''
+  return codes.map(c => `<span class="wh-chip">${esc(c)}</span>`).join('')
+}
+
+function groupWhCodes(groupId) {
+  const seen = new Set()
+  features.forEach(f => {
+    if (f.groupId === groupId && whMap[f.id]) whMap[f.id].forEach(c => seen.add(c))
+  })
+  return [...seen].sort()
+}
+
+function renderTree() {
+  const area = document.getElementById('tree-area')
+  if (!features.length && !groups.length) {
+    renderEmpty(area, 'No features defined', 'Create a group and add features to get started.')
+    return
+  }
+
+  const byGroup = new Map()
+  groups.forEach(g => byGroup.set(g.id, []))
+  const ungrouped = []
+  features.forEach(f => {
+    if (f.groupId && byGroup.has(f.groupId)) byGroup.get(f.groupId).push(f)
+    else ungrouped.push(f)
+  })
+
+  let html = '<table style="width:100%;border-collapse:collapse" id="feature-table">'
+
+  groups.forEach(g => {
+    const gFeatures = byGroup.get(g.id) ?? []
+    const isOpen    = !collapsed.has(g.id)
+    const gCodes    = groupWhCodes(g.id)
+    const canDelete = gCodes.length === 0
+    html += `
+      <tr class="group-tr" data-group-id="${esc(g.id)}" draggable="true">
+        <td colspan="4" style="padding:0">
+          <div class="group-row" onclick="toggleGroup('${esc(g.id)}')">
+            <span class="drag-handle" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>
+            <span class="group-chevron ${isOpen ? 'open' : ''}">▶</span>
+            <span class="group-icon">${g.enabled ? '📁' : '📂'}</span>
+            <span class="group-label" style="${!g.enabled ? 'opacity:.5' : ''}">
+              <span class="group-name">${esc(g.name)}</span>
+              <span class="group-route">${esc(g.route)}</span>
+            </span>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-right:8px">${whChips(gCodes)}</div>
+            <div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:8px">
+              <label class="toggle" title="${g.enabled ? 'Disable group' : 'Enable group'}">
+                <input type="checkbox" ${g.enabled ? 'checked' : ''}
+                  onchange="toggleGroupEnabled('${esc(g.id)}', this.checked)">
+                <span class="toggle-track"></span>
+              </label>
+              <div class="group-actions">
+                <button class="btn btn-ghost btn-xs" onclick="openGroupEditModal(${JSON.stringify(g).replace(/'/g, '&#39;')})">Edit</button>
+                <button class="btn btn-danger btn-xs" onclick="deleteGroup('${esc(g.id)}', '${esc(g.name)}')">Delete</button>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `
+    if (isOpen) {
+      gFeatures.forEach(f => { html += featureRow(f) })
+      if (!gFeatures.length) {
+        html += `<tr data-empty-group="${esc(g.id)}"><td colspan="4" style="padding:10px 40px;font-size:12px;color:var(--ink-5);font-style:italic;border-bottom:1px solid var(--ink-8)">No features in this group</td></tr>`
+      }
+    }
+  })
+
+  if (ungrouped.length) {
+    html += `
+      <tr>
+        <td colspan="4" style="padding:0">
+          <div class="ungrouped-header">
+            <span class="ungrouped-label">Ungrouped</span>
+          </div>
+        </td>
+      </tr>
+    `
+    ungrouped.forEach(f => { html += featureRow(f) })
+  }
+
+  html += '</table>'
+  area.innerHTML = html
+  initDrag()
+}
+
+function featureRow(f) {
+  const codes = whMap[f.id] ?? []
+  const canDelete = codes.length === 0
+  return `
+    <tr class="feature-row" data-feature-id="${esc(f.id)}" data-group-id="${esc(f.groupId ?? '')}" draggable="true" style="${!f.enabled ? 'opacity:.45' : ''};border-bottom:1px solid var(--ink-8)">
+      <td style="padding:10px 8px 10px 16px;width:20px">
+        <span class="drag-handle" title="Drag to reorder">⠿</span>
+      </td>
+      <td style="padding:10px 16px 10px 24px">
+        <div style="font-size:13px;font-weight:500;color:var(--ink-1)">${esc(f.name)}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:2px">${esc(f.route)}</div>
+      </td>
+      <td style="padding:10px 16px">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+          <label class="toggle" style="margin-right:4px">
+            <input type="checkbox" ${f.enabled ? 'checked' : ''}
+              onchange="toggleFeature('${esc(f.id)}', this.checked)">
+            <span class="toggle-track"></span>
+          </label>
+          ${whChips(codes)}
+        </div>
+      </td>
+      <td style="padding:10px 16px">
+        <div class="td-actions">
+          <button class="btn btn-ghost btn-sm" onclick='openEditModal(${JSON.stringify(f).replace(/'/g, "&#39;")})'>Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteFeature('${esc(f.id)}', '${esc(f.name)}')">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `
+}
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+
+let dragSrc = null   // the TR being dragged
+let dragType = null  // 'group' | 'feature'
+
+function initDrag() {
+  // Group rows
+  document.querySelectorAll('tr.group-tr').forEach(tr => {
+    tr.addEventListener('dragstart', onDragStart)
+    tr.addEventListener('dragend', onDragEnd)
+    tr.addEventListener('dragover', onDragOver)
+    tr.addEventListener('drop', onDrop)
+  })
+  // Feature rows
+  document.querySelectorAll('tr.feature-row').forEach(tr => {
+    tr.addEventListener('dragstart', onDragStart)
+    tr.addEventListener('dragend', onDragEnd)
+    tr.addEventListener('dragover', onDragOver)
+    tr.addEventListener('drop', onDrop)
+  })
+}
+
+function onDragStart(e) {
+  dragSrc  = e.currentTarget
+  dragType = dragSrc.classList.contains('group-tr') ? 'group' : 'feature'
+  e.dataTransfer.effectAllowed = 'move'
+  setTimeout(() => dragSrc.classList.add('drag-ghost'), 0)
+}
+
+function onDragEnd(e) {
+  dragSrc?.classList.remove('drag-ghost')
+  document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+    el.classList.remove('drag-over-top', 'drag-over-bottom')
+  })
+  dragSrc = null
+}
+
+function onDragOver(e) {
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+  const tr = e.currentTarget
+  if (!dragSrc || dragSrc === tr) return
+  const targetIsGroup   = tr.classList.contains('group-tr')
+  const targetIsFeature = tr.classList.contains('feature-row')
+  if (dragType === 'group' && !targetIsGroup) return
+  if (dragType === 'feature' && !targetIsFeature) return
+
+  document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+    el.classList.remove('drag-over-top', 'drag-over-bottom')
+  })
+  const rect = tr.getBoundingClientRect()
+  tr.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-top' : 'drag-over-bottom')
+}
+
+function onDrop(e) {
+  if (!dragSrc || dragSrc === this) return
+  e.preventDefault()
+
+  const targetIsGroup   = this.classList.contains('group-tr')
+  const targetIsFeature = this.classList.contains('feature-row')
+  if (dragType === 'group' && !targetIsGroup) return
+  if (dragType === 'feature' && !targetIsFeature) return
+
+  document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+    el.classList.remove('drag-over-top', 'drag-over-bottom')
+  })
+
+  const rect   = this.getBoundingClientRect()
+  const before = e.clientY < rect.top + rect.height / 2
+
+  if (dragType === 'group') {
+    const srcId  = dragSrc.dataset.groupId
+    const dstId  = this.dataset.groupId
+    const srcIdx = groups.findIndex(g => g.id === srcId)
+    let   dstIdx = groups.findIndex(g => g.id === dstId)
+    if (srcIdx === -1 || dstIdx === -1) return
+    const [item] = groups.splice(srcIdx, 1)
+    dstIdx = groups.findIndex(g => g.id === dstId)
+    groups.splice(before ? dstIdx : dstIdx + 1, 0, item)
+    renderTree()
+    saveGroupOrder()
+  } else {
+    const parent = this.parentNode
+    parent.insertBefore(dragSrc, before ? this : this.nextSibling)
+    saveFeatureOrder()
+  }
+}
+
+async function saveGroupOrder() {
+  const ids = [...document.querySelectorAll('tr.group-tr')].map(tr => tr.dataset.groupId)
+  // update local array order
+  groups = ids.map(id => groups.find(g => g.id === id)).filter(Boolean)
+  try {
+    await api('/api/feature-groups/reorder').put({ ids })
+  } catch (e) {
+    showToast('Failed to save order', 'error')
+    loadAll()
+  }
+}
+
+async function saveFeatureOrder() {
+  const ids = [...document.querySelectorAll('tr.feature-row')].map(tr => tr.dataset.featureId)
+  features = ids.map(id => features.find(f => f.id === id)).filter(Boolean)
+  try {
+    await api('/api/features/reorder').put({ ids })
+  } catch (e) {
+    showToast('Failed to save order', 'error')
+    loadAll()
+  }
+}
+
+function toggleGroup(groupId) {
+  if (collapsed.has(groupId)) collapsed.delete(groupId)
+  else collapsed.add(groupId)
+  renderTree()
+}
+
+function collapseAll() {
+  groups.forEach(g => collapsed.add(g.id))
+  renderTree()
+}
+
+function expandAll() {
+  collapsed.clear()
+  renderTree()
+}
+
+// ── Feature actions ───────────────────────────────────────────────────────────
+
+async function toggleFeature(id, enabled) {
+  try {
+    await api(`/api/features/${id}`).put({ enabled })
+    const f = features.find(x => x.id === id)
+    if (f) f.enabled = enabled
+    renderTree()
+    showToast(`Feature ${enabled ? 'enabled' : 'disabled'}`)
+  } catch (e) {
+    showToast(e.message, 'error')
+    loadAll()
+  }
+}
+
+function populateGroupSelect(selectedId = '') {
+  const sel = document.getElementById('input-group')
+  sel.innerHTML = '<option value="">— No group —</option>' +
+    groups.map(g => `<option value="${esc(g.id)}" ${g.id === selectedId ? 'selected' : ''}>${esc(g.name)}</option>`).join('')
+}
+
+function openCreateModal(preGroupId = '') {
+  document.getElementById('modal-title').textContent   = 'New Feature'
+  document.getElementById('save-btn').textContent      = 'Create Feature'
+  document.getElementById('edit-id').value             = ''
+  document.getElementById('input-name').value          = ''
+  document.getElementById('input-route').value         = ''
+  document.getElementById('input-enabled').checked     = true
+  document.getElementById('enabled-label').textContent = 'Enabled'
+  populateGroupSelect(preGroupId)
+  openModal('feature-modal')
+}
+
+function openEditModal(f) {
+  document.getElementById('modal-title').textContent   = 'Edit Feature'
+  document.getElementById('save-btn').textContent      = 'Save Changes'
+  document.getElementById('edit-id').value             = f.id
+  document.getElementById('input-name').value          = f.name
+  document.getElementById('input-route').value         = f.route
+  document.getElementById('input-enabled').checked     = f.enabled
+  document.getElementById('enabled-label').textContent = f.enabled ? 'Enabled' : 'Disabled'
+  populateGroupSelect(f.groupId ?? '')
+  openModal('feature-modal')
+}
+
+async function saveFeature() {
+  const id      = document.getElementById('edit-id').value
+  const name    = document.getElementById('input-name').value.trim()
+  const route   = document.getElementById('input-route').value.trim()
+  const enabled = document.getElementById('input-enabled').checked
+  const groupId = document.getElementById('input-group').value || null
+
+  if (!name)  { showToast('Name is required', 'error'); return }
+  if (!route) { showToast('Route is required', 'error'); return }
+
+  const btn = document.getElementById('save-btn')
+  btn.disabled = true
+  try {
+    if (id) {
+      await api(`/api/features/${id}`).put({ name, route, enabled, groupId })
+      showToast('Feature updated')
+    } else {
+      await api('/api/features').post({ name, route, enabled, groupId })
+      showToast('Feature created', 'success')
+    }
+    closeModal('feature-modal')
+    loadAll()
+  } catch (e) {
+    showToast(e.message, 'error')
+  } finally {
+    btn.disabled = false
+  }
+}
+
+async function deleteFeature(id, name) {
+  if (!await confirmAction(`Delete feature "${name}"?`)) return
+  try {
+    await api(`/api/features/${id}`).del()
+    showToast(`Feature "${name}" deleted`)
+    loadAll()
+  } catch (e) {
+    showToast(e.message, 'error')
+  }
+}
+
+// ── Group actions ─────────────────────────────────────────────────────────────
+
+async function toggleGroupEnabled(id, enabled) {
+  try {
+    await api(`/api/feature-groups/${id}`).put({ enabled })
+    const g = groups.find(x => x.id === id)
+    if (g) g.enabled = enabled
+    renderTree()
+    showToast(`Group ${enabled ? 'enabled' : 'disabled'}`)
+  } catch (e) {
+    showToast(e.message, 'error')
+    loadAll()
+  }
+}
+
+function openGroupModal() {
+  document.getElementById('group-modal-title').textContent   = 'New Group'
+  document.getElementById('group-save-btn').textContent      = 'Create Group'
+  document.getElementById('group-edit-id').value             = ''
+  document.getElementById('group-input-name').value          = ''
+  document.getElementById('group-input-route').value         = ''
+  document.getElementById('group-input-enabled').checked     = true
+  document.getElementById('group-enabled-label').textContent = 'Enabled'
+  openModal('group-modal')
+}
+
+function openGroupEditModal(g) {
+  document.getElementById('group-modal-title').textContent   = 'Edit Group'
+  document.getElementById('group-save-btn').textContent      = 'Save'
+  document.getElementById('group-edit-id').value             = g.id
+  document.getElementById('group-input-name').value          = g.name
+  document.getElementById('group-input-route').value         = g.route
+  document.getElementById('group-input-enabled').checked     = g.enabled
+  document.getElementById('group-enabled-label').textContent = g.enabled ? 'Enabled' : 'Disabled'
+  openModal('group-modal')
+}
+
+async function saveGroup() {
+  const id      = document.getElementById('group-edit-id').value
+  const name    = document.getElementById('group-input-name').value.trim()
+  const route   = document.getElementById('group-input-route').value.trim()
+  const enabled = document.getElementById('group-input-enabled').checked
+
+  if (!name)  { showToast('Name is required', 'error'); return }
+  if (!route) { showToast('Route is required', 'error'); return }
+
+  const btn = document.getElementById('group-save-btn')
+  btn.disabled = true
+  try {
+    if (id) {
+      await api(`/api/feature-groups/${id}`).put({ name, route, enabled })
+      showToast('Group updated')
+    } else {
+      await api('/api/feature-groups').post({ name, route, enabled })
+      showToast('Group created', 'success')
+    }
+    closeModal('group-modal')
+    loadAll()
+  } catch (e) {
+    showToast(e.message, 'error')
+  } finally {
+    btn.disabled = false
+  }
+}
+
+async function deleteGroup(id, name) {
+  if (!await confirmAction(`Delete group "${name}"?`)) return
+  try {
+    await api(`/api/feature-groups/${id}`).del()
+    showToast(`Group "${name}" deleted`)
+    loadAll()
+  } catch (e) {
+    showToast(e.message, 'error')
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadAll)
+</script>
+</body>
+</html>

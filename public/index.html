@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warehouses — Insights</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="nav-brand-dot"></span>
+    INSIGHTS
+  </div>
+  <div class="nav-divider"></div>
+  <ul class="nav-links">
+    <li><a href="/" class="active">▦ Warehouses</a></li>
+    <li><a href="/features.html">⚑ Features</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>Warehouses</h1>
+      <p>Manage warehouse configuration, feature flags, and settings</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('create-modal')">
+      + New Warehouse
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>All Warehouses</h2>
+    </div>
+    <div class="table-wrap">
+      <div id="table-area"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Modal -->
+<div id="create-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">New Warehouse</h2>
+      <button class="modal-close" onclick="closeModal('create-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Code</label>
+        <input class="form-input" id="input-code" placeholder="e.g. WH_001" autocomplete="off">
+        <span class="form-hint">Uppercase letters, numbers and underscores.</span>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeModal('create-modal')">Cancel</button>
+        <button class="btn btn-primary" id="save-btn" onclick="saveWarehouse()">Create Warehouse</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+let warehouses = []
+
+async function loadWarehouses() {
+  const area = document.getElementById('table-area')
+  renderLoading(area)
+  try {
+    warehouses = await api('/api/warehouses').get()
+    renderTable()
+  } catch (e) {
+    area.innerHTML = `<div class="empty-state"><h3>Failed to load</h3><p>${esc(e.message)}</p></div>`
+    showToast(e.message, 'error')
+  }
+}
+
+function renderTable() {
+  const area = document.getElementById('table-area')
+  if (!warehouses.length) {
+    renderEmpty(area, 'No warehouses yet', 'Create your first warehouse to get started.')
+    return
+  }
+  area.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${warehouses.map(w => `
+          <tr>
+            <td><span class="wh-code">${esc(w.code)}</span></td>
+            <td>
+              <div class="td-actions">
+                <a href="/warehouse-detail.html?id=${esc(w.id)}" class="btn btn-ghost btn-sm">Details →</a>
+                <button class="btn btn-danger btn-sm" onclick="deleteWarehouse('${esc(w.id)}', '${esc(w.code)}')">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `
+}
+
+function resetForm() {
+  document.getElementById('input-code').value = ''
+}
+
+document.getElementById('create-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) resetForm()
+})
+
+document.querySelector('[onclick="openModal(\'create-modal\')"]').addEventListener('click', resetForm)
+
+async function saveWarehouse() {
+  const code = document.getElementById('input-code').value.trim()
+  if (!code) { showToast('Code is required', 'error'); return }
+
+  const btn = document.getElementById('save-btn')
+  btn.disabled = true
+
+  try {
+    await api('/api/warehouses').post({ code, name: code })
+    showToast('Warehouse created', 'success')
+    closeModal('create-modal')
+    loadWarehouses()
+  } catch (e) {
+    showToast(e.message, 'error')
+  } finally {
+    btn.disabled = false
+  }
+}
+
+async function deleteWarehouse(id, code) {
+  if (!await confirmAction(`Delete warehouse "${code}"?`)) return
+  try {
+    await api(`/api/warehouses/${id}`).del()
+    showToast(`Warehouse "${code}" deleted`)
+    loadWarehouses()
+  } catch (e) {
+    showToast(e.message, 'error')
+  }
+}
+
+// Enter to submit modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('create-modal').classList.contains('hidden')) {
+    saveWarehouse()
+  }
+})
+
+document.addEventListener('DOMContentLoaded', loadWarehouses)
+</script>
+</body>
+</html>

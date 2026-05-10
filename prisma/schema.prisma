@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  features WarehouseFeature[]
+  settings WarehouseSetting[]
+  groups   WarehouseGroup[]
+
+  @@map("warehouse")
+}
+
+model FeatureGroup {
+  id        String    @id @default(uuid())
+  name      String
+  route     String    @unique
+  enabled   Boolean   @default(true)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  features Feature[]
+  warehouseGroups WarehouseGroup[]
+
+  @@map("feature_group")
+}
+
+model Feature {
+  id          String        @id @default(uuid())
+  name        String
+  route       String
+  enabled     Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  groupId     String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  group             FeatureGroup?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  warehouseFeatures WarehouseFeature[]
+
+  @@map("feature")
+}
+
+model WarehouseGroup {
+  id          String   @id @default(uuid())
+  warehouseId String   @map("warehouse_id")
+  groupId     String   @map("group_id")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  warehouse Warehouse    @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  group     FeatureGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, groupId])
+  @@map("warehouse_group")
+}
+
+model WarehouseFeature {
+  id          String   @id @default(uuid())
+  warehouseId String
+  featureId   String
+  enabled     Boolean  @default(true)
+  value       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  feature   Feature   @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, featureId])
+  @@map("warehouse_feature")
+}
+
+model WarehouseSetting {
+  id          String   @id @default(uuid())
+  warehouseId String
+  key         String
+  value       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, key])
+  @@map("warehouse_setting")
+}
