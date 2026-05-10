@@ -769,12 +769,10 @@ tbody td {
 ::-webkit-scrollbar-thumb:hover { background: var(--ink-5); }
 
 /* ─── Nav logout ─────────────────────────────────────────────── */
-.nav-logout {
-  margin-left: auto;
+.nav-logout,
+.nav-flush {
   padding: 5px 12px;
   background: transparent;
-  color: var(--ink-5);
-  border: 1px solid var(--ink-2);
   border-radius: var(--radius);
   font-family: var(--mono);
   font-size: 11px;
@@ -785,4 +783,18 @@ tbody td {
   transition: color .15s, border-color .15s, background .15s;
   flex-shrink: 0;
 }
+
+.nav-logout {
+  margin-left: auto;
+  color: var(--ink-5);
+  border: 1px solid var(--ink-2);
+}
 .nav-logout:hover { color: var(--white); border-color: var(--ink-4); background: var(--ink-1); }
+
+.nav-flush {
+  margin-left: auto;
+  color: var(--amber);
+  border: 1px solid var(--ink-2);
+}
+.nav-flush:hover { color: var(--white); border-color: var(--amber); background: rgba(217,119,6,.15); }
+.nav-flush + .nav-logout { margin-left: 6px; }

@@ -244,3 +244,12 @@ async function logout() {
   await fetch('/api/logout', { method: 'POST' }).catch(() => {})
   location.href = '/login.html'
 }
+
+async function flushCache() {
+  try {
+    await fetch('/api/internal/cache/flush', { method: 'POST' })
+    showToast('Snapshot cache flushed', 'success')
+  } catch {
+    showToast('Failed to flush cache', 'error')
+  }
+}

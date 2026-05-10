@@ -12,7 +12,7 @@ import settingsRouter from './routes/settings'
 import { errorHandler } from './middleware/errorHandler'
 import { requireAuth } from './middleware/basicAuth'
 import { apiKeyAuth } from './middleware/apiKeyAuth'
-import internalRouter from './routes/internal'
+import internalRouter, { flushCache } from './routes/internal'
 
 const app = express()
 const PORT = process.env.PORT ?? 3000
@@ -58,6 +58,12 @@ app.use((req, res, next) => {
 
 // All routes below require auth
 app.use(requireAuth)
+
+// Cache flush — session auth (used by the UI nav button)
+app.post('/api/internal/cache/flush', (req, res) => {
+  flushCache()
+  res.json({ ok: true })
+})
 
 // Authenticated static files (index.html, features.html, etc.)
 app.use(express.static(path.join(__dirname, '..', 'public')))
