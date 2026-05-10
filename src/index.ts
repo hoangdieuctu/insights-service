@@ -11,6 +11,8 @@ import warehouseSettingsRouter from './routes/warehouseSettings'
 import settingsRouter from './routes/settings'
 import { errorHandler } from './middleware/errorHandler'
 import { requireAuth } from './middleware/basicAuth'
+import { apiKeyAuth } from './middleware/apiKeyAuth'
+import internalRouter from './routes/internal'
 
 const app = express()
 const PORT = process.env.PORT ?? 3000
@@ -41,6 +43,9 @@ app.post('/api/logout', (req, res) => {
     res.json({ ok: true })
   })
 })
+
+// Internal API — API key auth only, no session required
+app.use('/api/internal', apiKeyAuth, internalRouter)
 
 // Public assets needed before auth (login page dependencies only)
 const PUBLIC_ASSETS = ['/login.html', '/style.css', '/app.js', '/favicon.svg']
