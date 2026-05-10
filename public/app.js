@@ -247,7 +247,8 @@ async function logout() {
 
 async function flushCache() {
   try {
-    await fetch('/api/internal/cache/flush', { method: 'POST' })
+    const res = await fetch('/api/internal/cache/flush', { method: 'POST' })
+    if (!res.ok) throw new Error(`${res.status}`)
     showToast('Snapshot cache flushed', 'success')
   } catch {
     showToast('Failed to flush cache', 'error')

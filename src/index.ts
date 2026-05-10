@@ -44,6 +44,12 @@ app.post('/api/logout', (req, res) => {
   })
 })
 
+// Cache flush — session auth (used by the UI nav button), must be before apiKeyAuth middleware
+app.post('/api/internal/cache/flush', requireAuth, (req, res) => {
+  flushCache()
+  res.json({ ok: true })
+})
+
 // Internal API — API key auth only, no session required
 app.use('/api/internal', apiKeyAuth, internalRouter)
 
@@ -58,12 +64,6 @@ app.use((req, res, next) => {
 
 // All routes below require auth
 app.use(requireAuth)
-
-// Cache flush — session auth (used by the UI nav button)
-app.post('/api/internal/cache/flush', (req, res) => {
-  flushCache()
-  res.json({ ok: true })
-})
 
 // Authenticated static files (index.html, features.html, etc.)
 app.use(express.static(path.join(__dirname, '..', 'public')))
