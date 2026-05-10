@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Setting {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  defaultValue String   @default("") @map("default_value")
+  description  String   @default("")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("setting")
+}
+
 model Warehouse {
   id        String   @id @default(uuid())
   code      String   @unique
