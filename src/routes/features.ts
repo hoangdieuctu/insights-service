@@ -19,21 +19,38 @@ router.get('/', async (req, res, next) => {
 // Returns a map of featureId -> warehouse codes (warehouses where feature is effectively enabled)
 router.get('/warehouse-map', async (req, res, next) => {
   try {
-    const [allWarehouses, allFeatures, disabledOverrides] = await Promise.all([
+    const [allWarehouses, allFeatures, disabledFeatureOverrides, disabledGroupOverrides] = await Promise.all([
       prisma.warehouse.findMany({ select: { id: true, code: true } }),
-      prisma.feature.findMany({ where: { enabled: true }, select: { id: true } }),
+      prisma.feature.findMany({
+        where: {
+          enabled: true,
+          OR: [
+            { groupId: null },
+            { group: { enabled: true } },
+          ],
+        },
+        select: { id: true, groupId: true },
+      }),
       prisma.warehouseFeature.findMany({
         where: { enabled: false },
         select: { featureId: true, warehouseId: true },
       }),
+      prisma.warehouseGroup.findMany({
+        where: { enabled: false },
+        select: { groupId: true, warehouseId: true },
+      }),
     ])
 
-    const disabledSet = new Set(disabledOverrides.map(o => `${o.featureId}:${o.warehouseId}`))
+    const disabledFeatureSet = new Set(disabledFeatureOverrides.map(o => `${o.featureId}:${o.warehouseId}`))
+    const disabledGroupSet   = new Set(disabledGroupOverrides.map(o => `${o.groupId}:${o.warehouseId}`))
 
     const map: Record<string, string[]> = {}
     for (const f of allFeatures) {
       map[f.id] = allWarehouses
-        .filter(w => !disabledSet.has(`${f.id}:${w.id}`))
+        .filter(w =>
+          !disabledFeatureSet.has(`${f.id}:${w.id}`) &&
+          !(f.groupId && disabledGroupSet.has(`${f.groupId}:${w.id}`))
+        )
         .map(w => w.code)
         .sort()
     }

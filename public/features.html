@@ -108,6 +108,7 @@
   <div class="nav-brand">
     <span class="nav-brand-dot"></span>
     INSIGHTS
+    <span style="font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-left:6px">v1.0.0</span>
   </div>
   <div class="nav-divider"></div>
   <ul class="nav-links">
@@ -318,7 +319,7 @@ function renderTree() {
       </tr>
     `
     if (isOpen) {
-      gFeatures.forEach(f => { html += featureRow(f) })
+      gFeatures.forEach(f => { html += featureRow(f, g.enabled) })
       if (!gFeatures.length) {
         html += `<tr data-empty-group="${esc(g.id)}"><td colspan="4" style="padding:10px 40px;font-size:12px;color:var(--ink-5);font-style:italic;border-bottom:1px solid var(--ink-8)">No features in this group</td></tr>`
       }
@@ -343,11 +344,11 @@ function renderTree() {
   initDrag()
 }
 
-function featureRow(f) {
+function featureRow(f, groupEnabled = true) {
   const codes = whMap[f.id] ?? []
-  const canDelete = codes.length === 0
+  const opacity = !f.enabled || !groupEnabled ? 'opacity:.45' : ''
   return `
-    <tr class="feature-row" data-feature-id="${esc(f.id)}" data-group-id="${esc(f.groupId ?? '')}" draggable="true" style="${!f.enabled ? 'opacity:.45' : ''};border-bottom:1px solid var(--ink-8)">
+    <tr class="feature-row" data-feature-id="${esc(f.id)}" data-group-id="${esc(f.groupId ?? '')}" draggable="true" style="${opacity};border-bottom:1px solid var(--ink-8)">
       <td style="padding:10px 8px 10px 16px;width:20px">
         <span class="drag-handle" title="Drag to reorder">⠿</span>
       </td>
@@ -509,6 +510,7 @@ async function toggleFeature(id, enabled) {
     await api(`/api/features/${id}`).put({ enabled })
     const f = features.find(x => x.id === id)
     if (f) f.enabled = enabled
+    whMap = await api('/api/features/warehouse-map').get()
     renderTree()
     showToast(`Feature ${enabled ? 'enabled' : 'disabled'}`)
   } catch (e) {
@@ -594,6 +596,7 @@ async function toggleGroupEnabled(id, enabled) {
     await api(`/api/feature-groups/${id}`).put({ enabled })
     const g = groups.find(x => x.id === id)
     if (g) g.enabled = enabled
+    whMap = await api('/api/features/warehouse-map').get()
     renderTree()
     showToast(`Group ${enabled ? 'enabled' : 'disabled'}`)
   } catch (e) {

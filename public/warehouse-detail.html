@@ -56,6 +56,7 @@
   <div class="nav-brand">
     <span class="nav-brand-dot"></span>
     INSIGHTS
+    <span style="font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-left:6px">v1.0.0</span>
   </div>
   <div class="nav-divider"></div>
   <ul class="nav-links">
@@ -225,7 +226,7 @@ function renderFeatureTree() {
       </tr>
     `
     if (isOpen) {
-      gFeatures.forEach(f => { html += whFeatureRow(f) })
+      gFeatures.forEach(f => { html += whFeatureRow(f, groupEnabled) })
     }
   })
 
@@ -257,9 +258,9 @@ async function toggleGroupOverride(groupId, enabled) {
   }
 }
 
-function whFeatureRow(f) {
+function whFeatureRow(f, groupEnabled = true) {
   return `
-    <tr class="feature-row" style="border-bottom:1px solid var(--ink-8)">
+    <tr class="feature-row" style="border-bottom:1px solid var(--ink-8);${!groupEnabled ? 'opacity:.4' : ''}">
       <td style="padding:10px 16px 10px 40px">
         <div style="font-size:13px;font-weight:500;color:var(--ink-1)">${esc(f.name)}</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:2px">${esc(f.route)}</div>
