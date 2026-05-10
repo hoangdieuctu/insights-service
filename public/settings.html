@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — Insights</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="nav-brand-dot"></span>
+    INSIGHTS
+    <span style="font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-left:6px">v1.0.2</span>
+  </div>
+  <div class="nav-divider"></div>
+  <ul class="nav-links">
+    <li><a href="/">▦ Warehouses</a></li>
+    <li><a href="/features.html">⚑ Features</a></li>
+    <li><a href="/settings.html" class="active">⚙ Settings</a></li>
+  </ul>
+  <button class="nav-logout" onclick="logout()">Sign out</button>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>Settings Registry</h1>
+      <p>Define global settings with default values. New warehouses inherit these automatically.</p>
+    </div>
+    <button class="btn btn-primary" onclick="openCreateModal()">+ New Setting</button>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Global Settings</h2>
+      <span class="text-sm text-muted" id="settings-count"></span>
+    </div>
+    <div class="table-wrap">
+      <div id="table-area"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Create / Edit Modal -->
+<div id="setting-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">New Setting</h2>
+      <button class="modal-close" onclick="closeModal('setting-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Key</label>
+        <input class="form-input" id="input-key" placeholder="e.g. timezone" autocomplete="off">
+        <span class="form-hint">Unique identifier for this setting.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Default Value</label>
+        <input class="form-input" id="input-default" placeholder="e.g. UTC" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <input class="form-input" id="input-desc" placeholder="Optional description" autocomplete="off">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeModal('setting-modal')">Cancel</button>
+        <button class="btn btn-primary" id="modal-save-btn" onclick="saveSetting()">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+let settingsData = []
+let editingId = null
+
+async function loadSettings() {
+  const area = document.getElementById('table-area')
+  renderLoading(area)
+  try {
+    settingsData = await api('/api/settings').get()
+    document.getElementById('settings-count').textContent = `${settingsData.length} settings`
+    renderTable()
+  } catch (e) {
+    renderEmpty(area, 'Failed to load settings', e.message)
+    showToast(e.message, 'error')
+  }
+}
+
+function renderTable() {
+  const area = document.getElementById('table-area')
+  if (!settingsData.length) {
+    renderEmpty(area, 'No settings yet', 'Click "+ New Setting" to define a global setting.')
+    return
+  }
+  area.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Default Value</th>
+          <th>Description</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${settingsData.map(s => `
+          <tr id="srow-${esc(s.id)}">
+            <td class="td-mono">${esc(s.key)}</td>
+            <td>
+              <span class="value-display ${!s.defaultValue ? 'empty' : ''}"
+                title="Click to edit"
+                onclick="startInlineEdit('${esc(s.id)}', 'defaultValue', this)"
+                data-value="${esc(s.defaultValue)}">
+                ${esc(s.defaultValue) || '—'}
+              </span>
+            </td>
+            <td style="color:var(--ink-4);font-size:13px">
+              <span class="value-display ${!s.description ? 'empty' : ''}"
+                title="Click to edit"
+                onclick="startInlineEdit('${esc(s.id)}', 'description', this)"
+                data-value="${esc(s.description)}">
+                ${esc(s.description) || '—'}
+              </span>
+            </td>
+            <td>
+              <div class="td-actions">
+                <button class="btn btn-ghost btn-sm" onclick="openEditModal('${esc(s.id)}')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteSetting('${esc(s.id)}', '${esc(s.key)}')">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `
+}
+
+function startInlineEdit(id, field, span) {
+  const currentVal = span.dataset.value
+  const input = document.createElement('input')
+  input.className = 'inline-edit-input'
+  input.value = currentVal
+
+  span.replaceWith(input)
+  input.focus()
+  input.select()
+
+  async function commit() {
+    const newVal = input.value
+    try {
+      await api(`/api/settings/${id}`).put({ [field]: newVal })
+      showToast('Setting updated')
+      loadSettings()
+    } catch (e) {
+      showToast(e.message, 'error')
+      loadSettings()
+    }
+  }
+
+  input.addEventListener('blur', commit, { once: true })
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { input.blur() }
+    if (e.key === 'Escape') { input.removeEventListener('blur', commit); loadSettings() }
+  })
+}
+
+function openCreateModal() {
+  editingId = null
+  document.getElementById('modal-title').textContent = 'New Setting'
+  document.getElementById('modal-save-btn').textContent = 'Create'
+  document.getElementById('input-key').value = ''
+  document.getElementById('input-default').value = ''
+  document.getElementById('input-desc').value = ''
+  document.getElementById('input-key').disabled = false
+  openModal('setting-modal')
+  setTimeout(() => document.getElementById('input-key').focus(), 50)
+}
+
+function openEditModal(id) {
+  const s = settingsData.find(x => x.id === id)
+  if (!s) return
+  editingId = id
+  document.getElementById('modal-title').textContent = 'Edit Setting'
+  document.getElementById('modal-save-btn').textContent = 'Save'
+  document.getElementById('input-key').value = s.key
+  document.getElementById('input-default').value = s.defaultValue
+  document.getElementById('input-desc').value = s.description
+  document.getElementById('input-key').disabled = false
+  openModal('setting-modal')
+  setTimeout(() => document.getElementById('input-key').focus(), 50)
+}
+
+async function saveSetting() {
+  const key = document.getElementById('input-key').value.trim()
+  const defaultValue = document.getElementById('input-default').value.trim()
+  const description = document.getElementById('input-desc').value.trim()
+
+  const btn = document.getElementById('modal-save-btn')
+  btn.disabled = true
+
+  try {
+    if (editingId) {
+      await api(`/api/settings/${editingId}`).put({ key, defaultValue, description })
+      showToast('Setting updated')
+    } else {
+      if (!key) { showToast('Key is required', 'error'); btn.disabled = false; return }
+      await api('/api/settings').post({ key, defaultValue, description })
+      showToast('Setting created')
+    }
+    closeModal('setting-modal')
+    loadSettings()
+  } catch (e) {
+    showToast(e.message, 'error')
+  } finally {
+    btn.disabled = false
+  }
+}
+
+async function deleteSetting(id, key) {
+  if (!await confirmAction(`Delete setting "${key}"? Warehouse-level values will not be affected.`)) return
+  try {
+    await api(`/api/settings/${id}`).del()
+    showToast(`Setting "${key}" deleted`)
+    loadSettings()
+  } catch (e) {
+    showToast(e.message, 'error')
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('setting-modal').classList.contains('hidden')) {
+    saveSetting()
+  }
+})
+
+document.addEventListener('DOMContentLoaded', loadSettings)
+</script>
+</body>
+</html>

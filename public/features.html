@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Features — Insights</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/style.css">
   <style>
     .group-row {
@@ -28,7 +29,7 @@
     .group-chevron.open { transform: rotate(90deg); }
 
     .group-icon { font-size: 14px; flex-shrink: 0; }
-    .group-label { flex: 1; display: flex; align-items: baseline; gap: 8px; }
+    .group-label { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .group-name  { font-size: 13px; font-weight: 600; color: var(--ink-1); }
     .group-route { font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
     .group-count { font-family: var(--mono); font-size: 11px; color: var(--ink-5); margin-right: 8px; }
@@ -108,13 +109,15 @@
   <div class="nav-brand">
     <span class="nav-brand-dot"></span>
     INSIGHTS
-    <span style="font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-left:6px">v1.0.0</span>
+    <span style="font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-left:6px">v1.0.2</span>
   </div>
   <div class="nav-divider"></div>
   <ul class="nav-links">
     <li><a href="/">▦ Warehouses</a></li>
     <li><a href="/features.html" class="active">⚑ Features</a></li>
+    <li><a href="/settings.html">⚙ Settings</a></li>
   </ul>
+  <button class="nav-logout" onclick="logout()">Sign out</button>
 </nav>
 
 <div class="container">
@@ -293,16 +296,18 @@ function renderTree() {
     const canDelete = gCodes.length === 0
     html += `
       <tr class="group-tr" data-group-id="${esc(g.id)}" draggable="true">
-        <td colspan="4" style="padding:0">
+        <td colspan="3" style="padding:0">
           <div class="group-row" onclick="toggleGroup('${esc(g.id)}')">
             <span class="drag-handle" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>
             <span class="group-chevron ${isOpen ? 'open' : ''}">▶</span>
             <span class="group-icon">${g.enabled ? '📁' : '📂'}</span>
             <span class="group-label" style="${!g.enabled ? 'opacity:.5' : ''}">
-              <span class="group-name">${esc(g.name)}</span>
-              <span class="group-route">${esc(g.route)}</span>
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span class="group-name">${esc(g.name)}</span>
+                <span class="group-route">${esc(g.route)}</span>
+              </div>
+              ${gCodes.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px">${whChips(gCodes)}</div>` : ''}
             </span>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-right:8px">${whChips(gCodes)}</div>
             <div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:8px">
               <label class="toggle" title="${g.enabled ? 'Disable group' : 'Enable group'}">
                 <input type="checkbox" ${g.enabled ? 'checked' : ''}
@@ -321,7 +326,7 @@ function renderTree() {
     if (isOpen) {
       gFeatures.forEach(f => { html += featureRow(f, g.enabled) })
       if (!gFeatures.length) {
-        html += `<tr data-empty-group="${esc(g.id)}"><td colspan="4" style="padding:10px 40px;font-size:12px;color:var(--ink-5);font-style:italic;border-bottom:1px solid var(--ink-8)">No features in this group</td></tr>`
+        html += `<tr data-empty-group="${esc(g.id)}"><td colspan="3" style="padding:10px 40px;font-size:12px;color:var(--ink-5);font-style:italic;border-bottom:1px solid var(--ink-8)">No features in this group</td></tr>`
       }
     }
   })
@@ -329,7 +334,7 @@ function renderTree() {
   if (ungrouped.length) {
     html += `
       <tr>
-        <td colspan="4" style="padding:0">
+        <td colspan="3" style="padding:0">
           <div class="ungrouped-header">
             <span class="ungrouped-label">Ungrouped</span>
           </div>
@@ -353,18 +358,18 @@ function featureRow(f, groupEnabled = true) {
         <span class="drag-handle" title="Drag to reorder">⠿</span>
       </td>
       <td style="padding:10px 16px 10px 24px">
-        <div style="font-size:13px;font-weight:500;color:var(--ink-1)">${esc(f.name)}</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:2px">${esc(f.route)}</div>
-      </td>
-      <td style="padding:10px 16px">
-        <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
-          <label class="toggle" style="margin-right:4px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="toggle">
             <input type="checkbox" ${f.enabled ? 'checked' : ''}
               onchange="toggleFeature('${esc(f.id)}', this.checked)">
             <span class="toggle-track"></span>
           </label>
-          ${whChips(codes)}
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--ink-1)">${esc(f.name)}</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:2px">${esc(f.route)}</div>
+          </div>
         </div>
+        ${codes.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;padding-left:44px">${whChips(codes)}</div>` : ''}
       </td>
       <td style="padding:10px 16px">
         <div class="td-actions">

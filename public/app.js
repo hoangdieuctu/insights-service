@@ -12,6 +12,10 @@ async function apiFetch(path, options = {}) {
   }
 
   const res = await fetch(path, opts)
+  if (res.status === 401) {
+    location.href = `/login.html?redirect=${encodeURIComponent(location.pathname)}`
+    return
+  }
   if (res.status === 204) return null
 
   const data = await res.json()
@@ -232,4 +236,11 @@ function esc(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+async function logout() {
+  await fetch('/api/logout', { method: 'POST' }).catch(() => {})
+  location.href = '/login.html'
 }

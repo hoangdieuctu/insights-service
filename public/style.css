@@ -767,3 +767,22 @@ tbody td {
 ::-webkit-scrollbar-track { background: var(--ink-9); }
 ::-webkit-scrollbar-thumb { background: var(--ink-6); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--ink-5); }
+
+/* ─── Nav logout ─────────────────────────────────────────────── */
+.nav-logout {
+  margin-left: auto;
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--ink-5);
+  border: 1px solid var(--ink-2);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+  flex-shrink: 0;
+}
+.nav-logout:hover { color: var(--white); border-color: var(--ink-4); background: var(--ink-1); }
