@@ -41,17 +41,17 @@ router.get('/warehouse-map', async (req, res, next) => {
       }),
     ])
 
-    const disabledFeatureSet = new Set(disabledFeatureOverrides.map(o => `${o.featureId}:${o.warehouseId}`))
-    const disabledGroupSet   = new Set(disabledGroupOverrides.map(o => `${o.groupId}:${o.warehouseId}`))
+    const disabledFeatureSet = new Set(disabledFeatureOverrides.map((o: { featureId: string; warehouseId: string }) => `${o.featureId}:${o.warehouseId}`))
+    const disabledGroupSet   = new Set(disabledGroupOverrides.map((o: { groupId: string; warehouseId: string }) => `${o.groupId}:${o.warehouseId}`))
 
     const map: Record<string, string[]> = {}
     for (const f of allFeatures) {
       map[f.id] = allWarehouses
-        .filter(w =>
+        .filter((w: { id: string; code: string }) =>
           !disabledFeatureSet.has(`${f.id}:${w.id}`) &&
           !(f.groupId && disabledGroupSet.has(`${f.groupId}:${w.id}`))
         )
-        .map(w => w.code)
+        .map((w: { id: string; code: string }) => w.code)
         .sort()
     }
     res.json(map)
@@ -98,7 +98,7 @@ router.get('/:id/warehouses', async (req, res, next) => {
       by: ['warehouseId'],
       where: { featureId: req.params.id, enabled: true },
     })
-    const warehouseIds = grouped.map(r => r.warehouseId)
+    const warehouseIds = grouped.map((r: { warehouseId: string }) => r.warehouseId)
     if (!warehouseIds.length) return res.json([])
 
     const warehouses = await prisma.warehouse.findMany({

@@ -36,7 +36,7 @@ router.post('/', async (req, res, next) => {
     const warehouses = await prisma.warehouse.findMany({ select: { id: true } })
     if (warehouses.length) {
       await prisma.warehouseSetting.createMany({
-        data: warehouses.map(w => ({
+        data: warehouses.map((w: { id: string }) => ({
           warehouseId: w.id,
           key: setting.key,
           value: setting.defaultValue,

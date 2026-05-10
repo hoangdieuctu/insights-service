@@ -21,6 +21,19 @@ router.post('/', async (req, res, next) => {
     const warehouse = await prisma.warehouse.create({
       data: { code: code.trim(), name: name.trim() },
     })
+
+    const globalSettings = await prisma.setting.findMany()
+    if (globalSettings.length) {
+      await prisma.warehouseSetting.createMany({
+        data: globalSettings.map((s: { key: string; defaultValue: string }) => ({
+          warehouseId: warehouse.id,
+          key: s.key,
+          value: s.defaultValue,
+        })),
+        skipDuplicates: true,
+      })
+    }
+
     res.status(201).json(warehouse)
   } catch (err: any) {
     if (err.code === 'P2002') return next(createError('Warehouse code already exists', 409))

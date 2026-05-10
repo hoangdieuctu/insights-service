@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { prisma } from '../lib/prisma'
 import { createError } from '../middleware/errorHandler'
 
+type WF = { featureId: string; enabled: boolean; value: string | null }
+
 const router = Router({ mergeParams: true })
 
 router.get('/', async (req, res, next) => {
@@ -17,15 +19,15 @@ router.get('/', async (req, res, next) => {
       prisma.warehouseFeature.findMany({ where: { warehouseId } }),
     ])
 
-    const overrideMap = new Map(overrides.map((o) => [o.featureId, o]))
+    const overrideMap = new Map(overrides.map((o: WF) => [o.featureId, o]))
 
     const result = features.map((feature) => {
       const override = overrideMap.get(feature.id) ?? null
       return {
         ...feature,
         override,
-        resolvedEnabled: override?.enabled ?? true,
-        resolvedValue: override?.value ?? null,
+        resolvedEnabled: (override as WF | null)?.enabled ?? true,
+        resolvedValue: (override as WF | null)?.value ?? null,
       }
     })
 
@@ -49,7 +51,7 @@ router.put('/group/:groupId', async (req, res, next) => {
     })
 
     await prisma.$transaction(
-      groupFeatures.map(f =>
+      groupFeatures.map((f: { id: string }) =>
         prisma.warehouseFeature.upsert({
           where: { warehouseId_featureId: { warehouseId, featureId: f.id } },
           update: { enabled },

@@ -36,14 +36,14 @@ router.get('/:id/warehouses', async (req, res, next) => {
       where: { groupId: req.params.id, enabled: true },
       select: { id: true },
     })
-    const featureIds = features.map(f => f.id)
+    const featureIds = features.map((f: { id: string }) => f.id)
     if (!featureIds.length) return res.json([])
 
     const grouped = await prisma.warehouseFeature.groupBy({
       by: ['warehouseId'],
       where: { featureId: { in: featureIds }, enabled: true },
     })
-    const warehouseIds = grouped.map(r => r.warehouseId)
+    const warehouseIds = grouped.map((r: { warehouseId: string }) => r.warehouseId)
     if (!warehouseIds.length) return res.json([])
 
     const warehouses = await prisma.warehouse.findMany({
