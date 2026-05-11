@@ -62,11 +62,12 @@ router.get('/warehouse-map', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { name, route, enabled, groupId } = req.body as {
+    const { name, route, enabled, groupId, defaultWarehouseEnabled } = req.body as {
       name?: string
       route?: string
       enabled?: boolean
       groupId?: string | null
+      defaultWarehouseEnabled?: boolean
     }
 
     if (!name) return next(createError('name is required', 400))
@@ -86,6 +87,21 @@ router.post('/', async (req, res, next) => {
       },
       include: { group: true },
     })
+
+    if (defaultWarehouseEnabled === false) {
+      const warehouses = await prisma.warehouse.findMany({ select: { id: true } })
+      if (warehouses.length) {
+        await prisma.warehouseFeature.createMany({
+          data: warehouses.map((w: { id: string }) => ({
+            warehouseId: w.id,
+            featureId: feature.id,
+            enabled: false,
+          })),
+          skipDuplicates: true,
+        })
+      }
+    }
+
     res.status(201).json(feature)
   } catch (err) {
     next(err)

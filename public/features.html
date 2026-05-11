@@ -109,7 +109,7 @@
   <div class="nav-brand">
     <span class="nav-brand-dot"></span>
     INSIGHTS
-    <span style="font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-left:6px">v1.0.4</span>
+    <span style="font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-left:6px">v1.0.5</span>
   </div>
   <div class="nav-divider"></div>
   <ul class="nav-links">
@@ -183,6 +183,18 @@
         <span class="form-hint">Disabled features are hidden from all warehouse detail pages</span>
       </div>
 
+      <div class="form-group" id="default-wh-group">
+        <label class="form-label">Default for warehouses</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:2px">
+          <label class="toggle">
+            <input type="checkbox" id="input-default-wh-enabled" checked>
+            <span class="toggle-track"></span>
+          </label>
+          <span id="default-wh-label" style="font-size:13px;color:var(--ink-3)">Enabled</span>
+        </div>
+        <span class="form-hint">Initial state for all existing warehouses when this feature is created</span>
+      </div>
+
       <div class="form-actions">
         <button class="btn btn-secondary" onclick="closeModal('feature-modal')">Cancel</button>
         <button class="btn btn-primary" id="save-btn" onclick="saveFeature()">Create Feature</button>
@@ -237,6 +249,9 @@ const collapsed = new Set()
 
 document.getElementById('input-enabled').addEventListener('change', function () {
   document.getElementById('enabled-label').textContent = this.checked ? 'Enabled' : 'Disabled'
+})
+document.getElementById('input-default-wh-enabled').addEventListener('change', function () {
+  document.getElementById('default-wh-label').textContent = this.checked ? 'Enabled' : 'Disabled'
 })
 document.getElementById('group-input-enabled').addEventListener('change', function () {
   document.getElementById('group-enabled-label').textContent = this.checked ? 'Enabled' : 'Disabled'
@@ -532,35 +547,40 @@ function populateGroupSelect(selectedId = '') {
 }
 
 function openCreateModal(preGroupId = '') {
-  document.getElementById('modal-title').textContent   = 'New Feature'
-  document.getElementById('save-btn').textContent      = 'Create Feature'
-  document.getElementById('edit-id').value             = ''
-  document.getElementById('input-name').value          = ''
-  document.getElementById('input-route').value         = ''
-  document.getElementById('input-enabled').checked     = true
-  document.getElementById('enabled-label').textContent = 'Enabled'
+  document.getElementById('modal-title').textContent        = 'New Feature'
+  document.getElementById('save-btn').textContent           = 'Create Feature'
+  document.getElementById('edit-id').value                  = ''
+  document.getElementById('input-name').value               = ''
+  document.getElementById('input-route').value              = ''
+  document.getElementById('input-enabled').checked          = true
+  document.getElementById('enabled-label').textContent      = 'Enabled'
+  document.getElementById('input-default-wh-enabled').checked = true
+  document.getElementById('default-wh-label').textContent   = 'Enabled'
+  document.getElementById('default-wh-group').style.display = ''
   populateGroupSelect(preGroupId)
   openModal('feature-modal')
 }
 
 function openEditModal(f) {
-  document.getElementById('modal-title').textContent   = 'Edit Feature'
-  document.getElementById('save-btn').textContent      = 'Save Changes'
-  document.getElementById('edit-id').value             = f.id
-  document.getElementById('input-name').value          = f.name
-  document.getElementById('input-route').value         = f.route
-  document.getElementById('input-enabled').checked     = f.enabled
-  document.getElementById('enabled-label').textContent = f.enabled ? 'Enabled' : 'Disabled'
+  document.getElementById('modal-title').textContent        = 'Edit Feature'
+  document.getElementById('save-btn').textContent           = 'Save Changes'
+  document.getElementById('edit-id').value                  = f.id
+  document.getElementById('input-name').value               = f.name
+  document.getElementById('input-route').value              = f.route
+  document.getElementById('input-enabled').checked          = f.enabled
+  document.getElementById('enabled-label').textContent      = f.enabled ? 'Enabled' : 'Disabled'
+  document.getElementById('default-wh-group').style.display = 'none'
   populateGroupSelect(f.groupId ?? '')
   openModal('feature-modal')
 }
 
 async function saveFeature() {
-  const id      = document.getElementById('edit-id').value
-  const name    = document.getElementById('input-name').value.trim()
-  const route   = document.getElementById('input-route').value.trim()
-  const enabled = document.getElementById('input-enabled').checked
-  const groupId = document.getElementById('input-group').value || null
+  const id                   = document.getElementById('edit-id').value
+  const name                 = document.getElementById('input-name').value.trim()
+  const route                = document.getElementById('input-route').value.trim()
+  const enabled              = document.getElementById('input-enabled').checked
+  const groupId              = document.getElementById('input-group').value || null
+  const defaultWarehouseEnabled = document.getElementById('input-default-wh-enabled').checked
 
   if (!name)  { showToast('Name is required', 'error'); return }
   if (!route) { showToast('Route is required', 'error'); return }
@@ -572,7 +592,7 @@ async function saveFeature() {
       await api(`/api/features/${id}`).put({ name, route, enabled, groupId })
       showToast('Feature updated')
     } else {
-      await api('/api/features').post({ name, route, enabled, groupId })
+      await api('/api/features').post({ name, route, enabled, groupId, defaultWarehouseEnabled })
       showToast('Feature created', 'success')
     }
     closeModal('feature-modal')
