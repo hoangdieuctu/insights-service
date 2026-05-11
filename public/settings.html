@@ -6,6 +6,22 @@
   <title>Settings — Insights</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/style.css">
+  <style>
+    .drag-handle {
+      cursor: grab;
+      color: var(--ink-5);
+      font-size: 14px;
+      padding: 0 4px;
+      opacity: 0;
+      transition: opacity .15s;
+      line-height: 1;
+    }
+    tr:hover .drag-handle { opacity: 1; }
+    .drag-handle:active { cursor: grabbing; }
+    .drag-over-top    { border-top: 2px solid var(--blue) !important; }
+    .drag-over-bottom { border-bottom: 2px solid var(--blue) !important; }
+    .drag-ghost { opacity: .35; }
+  </style>
 </head>
 <body>
 
@@ -102,6 +118,7 @@ function renderTable() {
     <table>
       <thead>
         <tr>
+          <th style="width:28px"></th>
           <th>Key</th>
           <th>Default Value</th>
           <th>Description</th>
@@ -110,7 +127,10 @@ function renderTable() {
       </thead>
       <tbody>
         ${settingsData.map(s => `
-          <tr id="srow-${esc(s.id)}">
+          <tr id="srow-${esc(s.id)}" data-setting-id="${esc(s.id)}" draggable="true">
+            <td style="padding:0 4px 0 12px;width:28px">
+              <span class="drag-handle" title="Drag to reorder">⠿</span>
+            </td>
             <td class="td-mono">${esc(s.key)}</td>
             <td>
               <span class="value-display ${!s.defaultValue ? 'empty' : ''}"
@@ -139,6 +159,7 @@ function renderTable() {
       </tbody>
     </table>
   `
+  initDrag()
 }
 
 function startInlineEdit(id, field, span) {
@@ -238,6 +259,70 @@ document.addEventListener('keydown', e => {
     saveSetting()
   }
 })
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+
+let dragSrc = null
+
+function initDrag() {
+  document.querySelectorAll('tr[data-setting-id]').forEach(tr => {
+    tr.addEventListener('dragstart', onDragStart)
+    tr.addEventListener('dragend', onDragEnd)
+    tr.addEventListener('dragover', onDragOver)
+    tr.addEventListener('drop', onDrop)
+  })
+}
+
+function onDragStart(e) {
+  dragSrc = e.currentTarget
+  e.dataTransfer.effectAllowed = 'move'
+  setTimeout(() => dragSrc.classList.add('drag-ghost'), 0)
+}
+
+function onDragEnd() {
+  dragSrc?.classList.remove('drag-ghost')
+  document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+    el.classList.remove('drag-over-top', 'drag-over-bottom')
+  })
+  dragSrc = null
+}
+
+function onDragOver(e) {
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+  const tr = e.currentTarget
+  if (!dragSrc || dragSrc === tr) return
+  document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+    el.classList.remove('drag-over-top', 'drag-over-bottom')
+  })
+  const rect = tr.getBoundingClientRect()
+  tr.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-top' : 'drag-over-bottom')
+}
+
+function onDrop(e) {
+  if (!dragSrc || dragSrc === this) return
+  e.preventDefault()
+  document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+    el.classList.remove('drag-over-top', 'drag-over-bottom')
+  })
+
+  const rect   = this.getBoundingClientRect()
+  const before = e.clientY < rect.top + rect.height / 2
+  const parent = this.parentNode
+  parent.insertBefore(dragSrc, before ? this : this.nextSibling)
+  saveOrder()
+}
+
+async function saveOrder() {
+  const ids = [...document.querySelectorAll('tr[data-setting-id]')].map(tr => tr.dataset.settingId)
+  settingsData = ids.map(id => settingsData.find(s => s.id === id)).filter(Boolean)
+  try {
+    await api('/api/settings/reorder').put({ ids })
+  } catch (e) {
+    showToast('Failed to save order', 'error')
+    loadSettings()
+  }
+}
 
 document.addEventListener('DOMContentLoaded', loadSettings)
 </script>
