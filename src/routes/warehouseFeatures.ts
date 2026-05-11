@@ -15,7 +15,7 @@ router.get('/', async (req, res, next) => {
 
     const [features, overrides] = await Promise.all([
       // only return globally enabled features
-      prisma.feature.findMany({ where: { enabled: true }, orderBy: { route: 'asc' } }),
+      prisma.feature.findMany({ where: { enabled: true }, orderBy: { sortOrder: 'asc' } }),
       prisma.warehouseFeature.findMany({ where: { warehouseId } }),
     ])
 
