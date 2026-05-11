@@ -127,6 +127,33 @@ router.get('/:id/warehouses', async (req, res, next) => {
   }
 })
 
+router.put('/:id/warehouses', async (req, res, next) => {
+  try {
+    const { enabled } = req.body as { enabled?: boolean }
+    if (enabled === undefined) return next(createError('enabled is required', 400))
+
+    const feature = await prisma.feature.findUnique({ where: { id: req.params.id } })
+    if (!feature) return next(createError('Feature not found', 404))
+
+    const warehouses = await prisma.warehouse.findMany({ select: { id: true } })
+    if (warehouses.length) {
+      await prisma.$transaction(
+        warehouses.map((w: { id: string }) =>
+          prisma.warehouseFeature.upsert({
+            where: { warehouseId_featureId: { warehouseId: w.id, featureId: feature.id } },
+            update: { enabled },
+            create: { warehouseId: w.id, featureId: feature.id, enabled },
+          })
+        )
+      )
+    }
+
+    res.status(204).send()
+  } catch (err) {
+    next(err)
+  }
+})
+
 // PUT /api/features/reorder — reorder features within their group
 router.put('/reorder', async (req, res, next) => {
   try {

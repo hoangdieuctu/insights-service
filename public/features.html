@@ -109,7 +109,7 @@
   <div class="nav-brand">
     <span class="nav-brand-dot"></span>
     INSIGHTS
-    <span style="font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-left:6px">v1.0.8</span>
+    <span style="font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-left:6px">v1.0.9</span>
   </div>
   <div class="nav-divider"></div>
   <ul class="nav-links">
@@ -390,6 +390,8 @@ function featureRow(f, groupEnabled = true) {
       <td style="padding:10px 16px">
         <div class="td-actions">
           <button class="btn btn-ghost btn-sm" onclick='openEditModal(${JSON.stringify(f).replace(/'/g, "&#39;")})'>Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="setAllWarehouses('${esc(f.id)}', true)">Enable all</button>
+          <button class="btn btn-ghost btn-sm" onclick="setAllWarehouses('${esc(f.id)}', false)">Disable all</button>
           <button class="btn btn-danger btn-sm" onclick="deleteFeature('${esc(f.id)}', '${esc(f.name)}')">Delete</button>
         </div>
       </td>
@@ -601,6 +603,19 @@ async function saveFeature() {
     showToast(e.message, 'error')
   } finally {
     btn.disabled = false
+  }
+}
+
+async function setAllWarehouses(id, enabled) {
+  const feature = features.find(f => f.id === id)
+  if (!await confirmAction(`${enabled ? 'Enable' : 'Disable'} feature "${feature?.name}" for all warehouses?`, enabled ? 'Enable' : 'Disable')) return
+  try {
+    await api(`/api/features/${id}/warehouses`).put({ enabled })
+    whMap = await api('/api/features/warehouse-map').get()
+    renderTree()
+    showToast(`Feature ${enabled ? 'enabled' : 'disabled'} for all warehouses`)
+  } catch (e) {
+    showToast(e.message, 'error')
   }
 }
 

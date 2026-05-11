@@ -1,6 +1,6 @@
 {
   "name": "insights-service",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Warehouse feature flags and settings management service",
   "main": "dist/index.js",
   "scripts": {
